@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intellar Monitor</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #1a1a1a; color: #fff; margin: 0; padding: 20px; }
+        h1 { margin-bottom: 30px; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 800px; margin: 0 auto; }
+        .card { background: #2d2d2d; padding: 20px; border-radius: 12px; width: 140px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .indicator { width: 24px; height: 24px; border-radius: 50%; margin-bottom: 10px; transition: all 0.3s; background: #444; border: 2px solid #555; }
+        .indicator.on { background: #00e676; box-shadow: 0 0 15px #00e676; border-color: #00e676; }
+        .indicator.off { background: #ff1744; box-shadow: 0 0 5px #ff1744; border-color: #ff1744; }
+        button { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #2979ff; color: white; border: none; border-radius: 8px; margin-bottom: 20px; transition: background 0.2s; }
+        button:hover { background: #2962ff; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        #statusText { margin-bottom: 20px; color: #aaa; font-style: italic; }
+        .fps { font-size: 12px; color: #888; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Intellar Engine Monitor</h1>
+    
+    <button id="btConnect">Connexion Bluetooth</button>
+    <div id="statusText">En attente de connexion...</div>
+
+    <div class="container">
+        <div class="card">
+            <div id="oled" class="indicator"></div>
+            <span>OLED</span>
+            <div id="fps_oled" class="fps">-- FPS</div>
+        </div>
+        <div class="card">
+            <div id="lcd_l" class="indicator"></div>
+            <span>LCD Gauche</span>
+            <div id="fps_lcd_l" class="fps">-- FPS</div>
+        </div>
+        <div class="card">
+            <div id="lcd_r" class="indicator"></div>
+            <span>LCD Droit</span>
+            <div id="fps_lcd_r" class="fps">-- FPS</div>
+        </div>
+        <div class="card"><div id="touch" class="indicator"></div><span>Tactile</span></div>
+        <div class="card"><div id="imu" class="indicator"></div><span>IMU (Gyro)</span></div>
+        <div class="card"><div id="tof" class="indicator"></div><span>ToF (Distance)</span></div>
+        <div class="card"><div id="touchpad" class="indicator"></div><span>Touchpad</span></div>
+    </div>
+
+    <script>
+        // UUIDs doivent correspondre EXACTEMENT à ceux définis dans Bluetooth.cpp
+        const SERVICE_UUID = "590d65c7-3a0a-4023-a05a-6aaf2f22441c";
+        const CHAR_UUID    = "0f0394c8-3162-42da-a0f5-5b0907106037";
+        
+        let bluetoothDevice;
+
+        document.getElementById('btConnect').addEventListener('click', async () => {
+            try {
+                document.getElementById('statusText').innerText = "Recherche du périphérique...";
+                
+                // 1. Demander à l'utilisateur de choisir le périphérique
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [SERVICE_UUID] }] // Filtre par notre Service UUID
+                });
+
+                bluetoothDevice = device;
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                // 2. Se connecter au serveur GATT
+                document.getElementById('statusText').innerText = "Connexion en cours...";
+                const server = await device.gatt.connect();
+
+                // 3. Récupérer le service et la caractéristique
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                const characteristic = await service.getCharacteristic(CHAR_UUID);
+
+                // 4. Activer les notifications
+                await characteristic.startNotifications();
+                characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+
+                document.getElementById('statusText').innerText = "Connecté à " + device.name;
+                document.getElementById('btConnect').disabled = true;
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('statusText').innerText = "Erreur: " + error;
+            }
+        });
+
+        function handleNotifications(event) {
+            const value = event.target.value;
+            const decoder = new TextDecoder('utf-8');
+            const jsonString = decoder.decode(value);
+            
+            try {
+                const data = JSON.parse(jsonString);
+                // Met à jour chaque indicateur basé sur les clés JSON (oled, lcd_l, etc.)
+                for (const [key, val] of Object.entries(data)) {
+                    const el = document.getElementById(key);
+                    if (el) {
+                        if (key.startsWith('fps_')) {
+                            el.innerText = val + ' FPS';
+                        } else {
+                            el.className = 'indicator ' + (val ? 'on' : 'off');
+                        }
+                    }
+                }
+            } catch (e) { console.error("JSON invalide", e); }
+        }
+
+        function onDisconnected(event) {
+            document.getElementById('statusText').innerText = "Déconnecté.";
+            document.getElementById('btConnect').disabled = false;
+            document.querySelectorAll('.indicator').forEach(el => el.className = 'indicator');
+        }
+    </script>
+</body>
+</html>
