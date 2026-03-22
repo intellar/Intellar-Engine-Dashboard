@@ -17,6 +17,9 @@
         button:disabled { background: #555; cursor: not-allowed; }
         #statusText { margin-bottom: 20px; color: #aaa; font-style: italic; }
         .fps { font-size: 12px; color: #888; margin-top: 5px; }
+        .controls { margin-top: 30px; border-top: 1px solid #444; padding-top: 20px; width: 100%; max-width: 800px; }
+        .btn-cmd { background: #444; margin: 5px; }
+        .btn-cmd:hover { background: #666; }
     </style>
 </head>
 <body>
@@ -47,12 +50,19 @@
         <div class="card"><div id="touchpad" class="indicator"></div><span>Touchpad</span></div>
     </div>
 
+    <div class="controls">
+        <h2>Changer de Personnage</h2>
+        <button class="btn-cmd" onclick="sendCommand('10')">🐱 Chat</button>
+        <button class="btn-cmd" onclick="sendCommand('11')">🐵 Singe</button>
+    </div>
+
     <script>
         // UUIDs doivent correspondre EXACTEMENT à ceux définis dans Bluetooth.cpp
         const SERVICE_UUID = "590d65c7-3a0a-4023-a05a-6aaf2f22441c";
         const CHAR_UUID    = "0f0394c8-3162-42da-a0f5-5b0907106037";
         
         let bluetoothDevice;
+        let btCharacteristic; // Variable pour stocker la connexion d'écriture
 
         document.getElementById('btConnect').addEventListener('click', async () => {
             try {
@@ -73,6 +83,7 @@
                 // 3. Récupérer le service et la caractéristique
                 const service = await server.getPrimaryService(SERVICE_UUID);
                 const characteristic = await service.getCharacteristic(CHAR_UUID);
+                btCharacteristic = characteristic; // Sauvegarde pour utilisation ultérieure
 
                 // 4. Activer les notifications
                 await characteristic.startNotifications();
@@ -111,7 +122,17 @@
         function onDisconnected(event) {
             document.getElementById('statusText').innerText = "Déconnecté.";
             document.getElementById('btConnect').disabled = false;
+            btCharacteristic = null;
             document.querySelectorAll('.indicator').forEach(el => el.className = 'indicator');
+        }
+
+        async function sendCommand(cmd) {
+            if (!btCharacteristic) {
+                alert("Non connecté !");
+                return;
+            }
+            const encoder = new TextEncoder();
+            await btCharacteristic.writeValue(encoder.encode(cmd));
         }
     </script>
 </body>
