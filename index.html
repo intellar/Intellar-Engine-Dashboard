@@ -32,7 +32,7 @@
             box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
         }
         .char-card canvas { width: 100px; height: 100px; border-radius: 8px; margin-bottom: 5px; display: none; }
-        .char-card .icon { font-size: 60px; margin-bottom: 10px; }
+        .char-card .placeholder { width: 100px; height: 100px; background: #222; border: 1px solid #444; border-radius: 8px; margin-bottom: 5px; }
         .char-card span { font-size: 16px; font-weight: bold; }
     </style>
 </head>
@@ -174,19 +174,13 @@
                         let cleanName = f.name.replace(/^\//, '').replace(/^expression-/, '').split('-')[0];
                         cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
                         
-                        // Choix icône selon le nom (bonus)
-                        let icon = "😐";
-                        if(cleanName.includes("Chat")) icon = "🐱";
-                        else if(cleanName.includes("Monkey")) icon = "🐵";
-                        else if(cleanName.includes("Robot")) icon = "🤖";
-                        
                         const div = document.createElement('div');
                         div.className = 'char-card';
                         div.dataset.face = f.id;
                         div.onclick = () => sendCommand(String(f.id));
                         // Ajouter ID au canvas pour le cibler plus tard
                         div.innerHTML = `
-                            <div class="icon" id="icon-${f.id}">${icon}</div>
+                            <div class="placeholder" id="icon-${f.id}"></div>
                             <canvas id="cvs-${f.id}" width="120" height="120"></canvas>
                             <span>${cleanName}</span>
                         `;
