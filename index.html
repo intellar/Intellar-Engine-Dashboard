@@ -18,8 +18,22 @@
         #statusText { margin-bottom: 20px; color: #aaa; font-style: italic; }
         .fps { font-size: 12px; color: #888; margin-top: 5px; }
         .controls { margin-top: 30px; border-top: 1px solid #444; padding-top: 20px; width: 100%; max-width: 800px; }
-        .btn-cmd { background: #444; margin: 5px; }
-        .btn-cmd:hover { background: #666; }
+        .char-grid { display: flex; gap: 20px; justify-content: center; margin-top: 20px; }
+        .char-card {
+            width: 120px; height: 140px;
+            background: #2d2d2d; border: 2px solid #555; border-radius: 12px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .char-card:hover { background: #3d3d3d; border-color: #2979ff; transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .char-card.active {
+            border-color: #00e676;
+            background: #2a3b2a;
+            box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
+        }
+        .char-card canvas { width: 100px; height: 100px; border-radius: 8px; margin-bottom: 5px; display: none; }
+        .char-card .icon { font-size: 60px; margin-bottom: 10px; }
+        .char-card span { font-size: 16px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -52,8 +66,10 @@
 
     <div class="controls">
         <h2>Changer de Personnage</h2>
-        <button class="btn-cmd" onclick="sendCommand('10')">🐱 Chat</button>
-        <button class="btn-cmd" onclick="sendCommand('11')">🐵 Singe</button>
+        <div class="char-grid" id="charGrid">
+            <!-- Généré dynamiquement -->
+            <div style="color:#888;">Connectez le Bluetooth...</div>
+        </div>
     </div>
 
     <script>
@@ -63,6 +79,11 @@
         
         let bluetoothDevice;
         let btCharacteristic; // Variable pour stocker la connexion d'écriture
+        
+        // Variables pour la réception d'image
+        let imgBuffer = null;
+        let imgBufferIdx = 0;
+        let currentPreviewId = -1;
 
         document.getElementById('btConnect').addEventListener('click', async () => {
             try {
@@ -92,6 +113,9 @@
                 document.getElementById('statusText').innerText = "Connecté à " + device.name;
                 document.getElementById('btConnect').disabled = true;
 
+                // 5. Demander la liste des fichiers disponibles
+                setTimeout(() => sendCommand('99'), 500); 
+
             } catch (error) {
                 console.error(error);
                 document.getElementById('statusText').innerText = "Erreur: " + error;
@@ -101,10 +125,88 @@
         function handleNotifications(event) {
             const value = event.target.value;
             const decoder = new TextDecoder('utf-8');
+            
+            // DÉTECTION IMAGE BINAIRE (Header: I M G 0 120 120)
+            if (value.byteLength > 3 && value.getUint8(0) === 73 && value.getUint8(1) === 77 && value.getUint8(2) === 71) {
+                const id = value.getUint8(3); // Lecture de l'ID
+                const w = value.getUint8(4);
+                const h = value.getUint8(5);
+                console.log(`Reception image ID:${id} ${w}x${h}`);
+                // Préparation du buffer (RGB565 = 2 bytes per pixel)
+                imgBuffer = new Uint8Array(w * h * 2);
+                imgBufferIdx = 0;
+                currentPreviewId = id; // On mémorise l'ID pour ce transfert
+                return;
+            }
+
+            // ACCUMULATION DONNÉES IMAGE
+            if (imgBuffer !== null) {
+                const chunk = new Uint8Array(value.buffer);
+                if (imgBufferIdx + chunk.length <= imgBuffer.length) {
+                    imgBuffer.set(chunk, imgBufferIdx);
+                    imgBufferIdx += chunk.length;
+                    
+                    // Image complète reçue
+                    if (imgBufferIdx >= imgBuffer.length) {
+                        renderPreview(imgBuffer, 120, 120, currentPreviewId);
+                        imgBuffer = null;
+                    }
+                    return;
+                }
+            }
+
+            // DÉTECTION JSON
             const jsonString = decoder.decode(value);
             
             try {
+                // Si ça ne ressemble pas à du JSON, on ignore (paquet binaire perdu ?)
+                if (!jsonString.startsWith('{')) return;
+
                 const data = JSON.parse(jsonString);
+                
+                // Réception de la liste des fichiers
+                if (data.files) {
+                    const grid = document.getElementById('charGrid');
+                    grid.innerHTML = ""; // Vider la liste
+                    
+                    data.files.forEach(f => {
+                        // Nettoyage du nom : /expression-monkey-5... -> Monkey
+                        let cleanName = f.name.replace(/^\//, '').replace(/^expression-/, '').split('-')[0];
+                        cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+                        
+                        // Choix icône selon le nom (bonus)
+                        let icon = "😐";
+                        if(cleanName.includes("Chat")) icon = "🐱";
+                        else if(cleanName.includes("Monkey")) icon = "🐵";
+                        else if(cleanName.includes("Robot")) icon = "🤖";
+                        
+                        const div = document.createElement('div');
+                        div.className = 'char-card';
+                        div.dataset.face = f.id;
+                        div.onclick = () => sendCommand(String(f.id));
+                        // Ajouter ID au canvas pour le cibler plus tard
+                        div.innerHTML = `
+                            <div class="icon" id="icon-${f.id}">${icon}</div>
+                            <canvas id="cvs-${f.id}" width="120" height="120"></canvas>
+                            <span>${cleanName}</span>
+                        `;
+                        grid.appendChild(div);
+
+                        // Demander la miniature après un court délai
+                        setTimeout(() => {
+                            sendCommand(String(200 + (f.id - 10))); // 200 + index
+                        }, 500 + (f.id - 10) * 2000); // Échelonner les demandes
+                    });
+                }
+
+                // Mise à jour de la sélection de personnage
+                if (data.face !== undefined) {
+                    document.querySelectorAll('.char-card').forEach(el => {
+                        if (el.dataset.face == data.face) el.classList.add('active');
+                        else el.classList.remove('active');
+                    });
+                }
+
                 // Met à jour chaque indicateur basé sur les clés JSON (oled, lcd_l, etc.)
                 for (const [key, val] of Object.entries(data)) {
                     const el = document.getElementById(key);
@@ -117,6 +219,33 @@
                     }
                 }
             } catch (e) { console.error("JSON invalide", e); }
+        }
+
+        function renderPreview(buffer, width, height, id) {
+            const cvs = document.getElementById('cvs-' + id);
+            const icon = document.getElementById('icon-' + id);
+            if (!cvs) return;
+
+            const ctx = cvs.getContext('2d');
+            const imgData = ctx.createImageData(width, height);
+            const data = imgData.data;
+            const u16 = new Uint16Array(buffer.buffer);
+
+            for (let i = 0; i < u16.length; i++) {
+                let pixel = u16[i];
+                // RGB565 conversion
+                // (Attention au boutisme, ici on suppose que c'est reçu tel quel)
+                let r = (pixel >> 11) & 0x1F;
+                let g = (pixel >> 5) & 0x3F;
+                let b = pixel & 0x1F;
+                data[i*4] = (r * 255 / 31);
+                data[i*4+1] = (g * 255 / 63);
+                data[i*4+2] = (b * 255 / 31);
+                data[i*4+3] = 255;
+            }
+            ctx.putImageData(imgData, 0, 0);
+            cvs.style.display = 'block';
+            if(icon) icon.style.display = 'none';
         }
 
         function onDisconnected(event) {
