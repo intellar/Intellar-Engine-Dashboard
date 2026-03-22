@@ -42,27 +42,8 @@
     <button id="btConnect">Connexion Bluetooth</button>
     <div id="statusText">En attente de connexion...</div>
 
-    <div class="container">
-        <div class="card">
-            <div id="oled" class="indicator"></div>
-            <span>OLED</span>
-            <div id="fps_oled" class="fps">-- FPS</div>
-        </div>
-        <div class="card">
-            <div id="lcd_l" class="indicator"></div>
-            <span>LCD Gauche</span>
-            <div id="fps_lcd_l" class="fps">-- FPS</div>
-        </div>
-        <div class="card">
-            <div id="lcd_r" class="indicator"></div>
-            <span>LCD Droit</span>
-            <div id="fps_lcd_r" class="fps">-- FPS</div>
-        </div>
-        <div class="card"><div id="touch" class="indicator"></div><span>Tactile</span></div>
-        <div class="card"><div id="imu" class="indicator"></div><span>IMU (Gyro)</span></div>
-        <div class="card"><div id="tof" class="indicator"></div><span>ToF (Distance)</span></div>
-        <div class="card"><div id="touchpad" class="indicator"></div><span>Touchpad</span></div>
-    </div>
+    <!-- Conteneur vidé, sera rempli par JS -->
+    <div class="container" id="indicatorsContainer"></div>
 
     <div class="controls">
         <h2>Changer de Personnage</h2>
@@ -84,6 +65,17 @@
         let imgBuffer = null;
         let imgBufferIdx = 0;
         let currentPreviewId = -1;
+        
+        // Définition des composants possibles pour la génération dynamique
+        const COMPONENTS_DEF = {
+            oled: { label: "OLED", fpsId: "fps_oled" },
+            lcd_l: { label: "LCD Gauche", fpsId: "fps_lcd_l" },
+            lcd_r: { label: "LCD Droit", fpsId: "fps_lcd_r" },
+            touch: { label: "Tactile" },
+            imu: { label: "IMU (Gyro)" },
+            tof: { label: "ToF (Distance)" },
+            touchpad: { label: "Touchpad" }
+        };
 
         document.getElementById('btConnect').addEventListener('click', async () => {
             try {
@@ -164,6 +156,24 @@
 
                 const data = JSON.parse(jsonString);
                 
+                // RECEPTION CONFIGURATION INITIALE
+                if (data.config) {
+                    const container = document.getElementById('indicatorsContainer');
+                    container.innerHTML = ""; // Reset
+                    
+                    for (const [key, enabled] of Object.entries(data.config)) {
+                        if (enabled && COMPONENTS_DEF[key]) {
+                            const def = COMPONENTS_DEF[key];
+                            const fpsHtml = def.fpsId ? `<div id="${def.fpsId}" class="fps">-- FPS</div>` : '';
+                            
+                            const card = document.createElement('div');
+                            card.className = 'card';
+                            card.innerHTML = `<div id="${key}" class="indicator"></div><span>${def.label}</span>${fpsHtml}`;
+                            container.appendChild(card);
+                        }
+                    }
+                }
+
                 // Réception de la liste des fichiers
                 if (data.files) {
                     const grid = document.getElementById('charGrid');
