@@ -12,4 +12,5 @@ Selon les conditions suivantes :
 
 Le code juridique complet est disponible sur : https://creativecommons.org/licenses/by-nc/4.0/legalcode.fr
 
-Copyright (c) 2026 Jean-Nicolas (Intellar.ca)
+Copyright (c) 2026 Jean-Nicolas Ouellet (Intellar)
+Intellar.ca
