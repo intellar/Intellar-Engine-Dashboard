@@ -41,6 +41,13 @@
             border-radius: 6px; cursor: pointer; transition: all 0.2s;
         }
         .oled-btn:hover { background: #2979ff; border-color: #2979ff; }
+        
+        .target-selector {
+            display: flex; justify-content: center; gap: 15px; margin-bottom: 20px;
+            background: #222; padding: 10px; border-radius: 8px; border: 1px solid #444;
+        }
+        .target-selector label { cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .target-selector input { cursor: pointer; accent-color: #2979ff; }
     </style>
 </head>
 <body>
@@ -54,6 +61,11 @@
 
     <div class="controls">
         <h2>Changer de Personnage</h2>
+        <div class="target-selector">
+            <span>Cible :</span>
+            <label><input type="radio" name="targetDisplay" value="0" checked> Écran Gauche (Chat)</label>
+            <label><input type="radio" name="targetDisplay" value="20"> Écran Droit (Singe)</label>
+        </div>
         <div class="char-grid" id="charGrid">
             <!-- Généré dynamiquement -->
             <div style="color:#888;">Connectez le Bluetooth...</div>
@@ -200,7 +212,11 @@
                         const div = document.createElement('div');
                         div.className = 'char-card';
                         div.dataset.face = f.id;
-                        div.onclick = () => sendCommand(String(f.id));
+                        div.onclick = () => {
+                            const offset = parseInt(document.querySelector('input[name="targetDisplay"]:checked').value);
+                            // f.id est 10+i. Si offset est 20, on envoie 30+i (Écran Droit)
+                            sendCommand(String(f.id + offset));
+                        };
                         // Ajouter ID au canvas pour le cibler plus tard
                         div.innerHTML = `
                             <div class="placeholder" id="icon-${f.id}"></div>
