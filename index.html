@@ -41,6 +41,13 @@
             border-radius: 6px; cursor: pointer; transition: all 0.2s;
         }
         .oled-btn:hover { background: #2979ff; border-color: #2979ff; }
+
+        .color-grid { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        .color-dot {
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+            border: 2px solid #555; transition: transform 0.2s;
+        }
+        .color-dot:hover { transform: scale(1.2); border-color: #fff; }
         
         .target-selector {
             display: flex; justify-content: center; gap: 15px; margin-bottom: 20px;
@@ -48,6 +55,17 @@
         }
         .target-selector label { cursor: pointer; display: flex; align-items: center; gap: 5px; }
         .target-selector input { cursor: pointer; accent-color: #2979ff; }
+
+        .mode-grid { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+        .mode-btn {
+            padding: 12px 24px; background: #333; border: 2px solid #555; color: #fff;
+            border-radius: 8px; cursor: pointer; transition: all 0.2s; font-weight: bold;
+        }
+        .mode-btn:hover { border-color: #2979ff; }
+        .mode-btn.active { background: #2979ff; border-color: #fff; box-shadow: 0 0 10px rgba(41, 121, 255, 0.5); }
+
+        /* Masquage de l'interface hors connexion */
+        #mainUI { display: none; margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -56,25 +74,35 @@
     <button id="btConnect">Connexion Bluetooth</button>
     <div id="statusText">En attente de connexion...</div>
 
-    <!-- Conteneur vidé, sera rempli par JS -->
-    <div class="container" id="indicatorsContainer"></div>
+    <!-- Interface principale cachée au départ -->
+    <div id="mainUI">
+        <div class="container" id="indicatorsContainer"></div>
 
-    <div class="controls">
-        <h2>Changer de Personnage</h2>
-        <div class="target-selector">
-            <span>Cible :</span>
-            <label><input type="radio" name="targetDisplay" value="0" checked> Écran Gauche (Chat)</label>
-            <label><input type="radio" name="targetDisplay" value="20"> Écran Droit (Singe)</label>
+        <div class="controls">
+            <h2>Changer de Personnage</h2>
+            <div class="target-selector">
+                <span>Cible :</span>
+                <label><input type="radio" name="targetDisplay" value="0" checked> Écran Gauche</label>
+                <label><input type="radio" name="targetDisplay" value="20"> Écran Droit</label>
+            </div>
+            <div class="char-grid" id="charGrid">
+                <!-- Généré dynamiquement depuis 'faces' et 'files' -->
+            </div>
         </div>
-        <div class="char-grid" id="charGrid">
-            <!-- Généré dynamiquement -->
-            <div style="color:#888;">Connectez le Bluetooth...</div>
-        </div>
-    </div>
 
-    <div class="controls" id="oledControls" style="display:none;">
-        <h2>Animations Yeux (OLED)</h2>
-        <div class="oled-grid" id="oledGrid">
+        <div class="controls" id="oledModeContainer" style="display:none;">
+            <h2>Mode Écran OLED</h2>
+            <div class="mode-grid" id="oledModeGrid"></div>
+        </div>
+
+        <div class="controls" id="oledColorsContainer" style="display:none;">
+            <h2>Couleur des Yeux</h2>
+            <div class="color-grid" id="colorGrid"></div>
+        </div>
+
+        <div class="controls" id="oledControls" style="display:none;">
+            <h2>Animations Yeux (OLED)</h2>
+            <div class="oled-grid" id="oledGrid"></div>
         </div>
     </div>
 
@@ -129,6 +157,7 @@
 
                 document.getElementById('statusText').innerText = "Connecté à " + device.name;
                 document.getElementById('btConnect').disabled = true;
+                document.getElementById('mainUI').style.display = 'block';
 
                 // 5. Demander la liste des fichiers disponibles
                 setTimeout(() => sendCommand('99'), 500); 
@@ -199,39 +228,88 @@
                     }
                 }
 
-                // Réception de la liste des fichiers
-                if (data.files) {
+                // Réception des Personnages (Faces systèmes et Files SD)
+                if (data.faces || data.files) {
                     const grid = document.getElementById('charGrid');
-                    grid.innerHTML = ""; // Vider la liste
                     
-                    data.files.forEach(f => {
-                        // Nettoyage du nom : /expression-monkey-5... -> Monkey
-                        let cleanName = f.name.replace(/^\//, '').replace(/^expression-/, '').split('-')[0];
-                        cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-                        
-                        const div = document.createElement('div');
-                        div.className = 'char-card';
-                        div.dataset.face = f.id;
-                        div.onclick = () => {
-                            const offset = parseInt(document.querySelector('input[name="targetDisplay"]:checked').value);
-                            // f.id est 10+i. Si offset est 20, on envoie 30+i (Écran Droit)
-                            sendCommand(String(f.id + offset));
-                        };
-                        // Ajouter ID au canvas pour le cibler plus tard
-                        div.innerHTML = `
-                            <div class="placeholder" id="icon-${f.id}"></div>
-                            <canvas id="cvs-${f.id}" width="120" height="120"></canvas>
-                            <span>${cleanName}</span>
-                        `;
-                        grid.appendChild(div);
+                    // On ne vide la grille que si on reçoit les faces (le premier paquet de synchro)
+                    if (data.faces) grid.innerHTML = "";
 
-                        // Demander la miniature après un court délai
+                    // 1. Ajouter les Faces systèmes (Chat, ToF, etc.)
+                    if (data.faces) {
+                        data.faces.forEach(f => {
+                            const div = document.createElement('div');
+                            div.className = 'char-card';
+                            div.dataset.face = f.id;
+                            div.onclick = () => sendCommand(String(f.id));
+                            div.innerHTML = `
+                                <div class="placeholder" style="display:flex;align-items:center;justify-content:center;font-size:30px;">🤖</div>
+                                <span>${f.name}</span>
+                            `;
+                            grid.appendChild(div);
+                        });
+                    }
+
+                    // 2. Ajouter les Fichiers d'expressions (SD Card)
+                    if (data.files) {
+                        data.files.forEach(f => {
+                            let cleanName = f.name.replace(/^\//, '').replace(/^expression-/, '').split('-')[0];
+                            cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+                            
+                            const div = document.createElement('div');
+                            div.className = 'char-card';
+                            div.dataset.face = f.id;
+                            div.onclick = () => {
+                                const offset = parseInt(document.querySelector('input[name="targetDisplay"]:checked').value);
+                                sendCommand(String(f.id + offset));
+                            };
+                            div.innerHTML = `
+                                <div class="placeholder" id="icon-${f.id}"></div>
+                                <canvas id="cvs-${f.id}" width="120" height="120"></canvas>
+                                <span>${cleanName}</span>
+                            `;
+                            grid.appendChild(div);
+
+                        // Demander la miniature après un court délai échelonné
                         setTimeout(() => {
                             sendCommand(String(200 + (f.id - 10))); // 200 + index
-                        }, 500 + (f.id - 10) * 2000); // Échelonner les demandes
+                        }, 500 + (f.id - 10) * 2000);
                     });
                 }
+                }
                 
+                // Réception des modes OLED (Yeux vs Touchpad)
+                if (data.oled_modes) {
+                    const modeDiv = document.getElementById('oledModeContainer');
+                    const modeGrid = document.getElementById('oledModeGrid');
+                    modeDiv.style.display = 'block';
+                    modeGrid.innerHTML = "";
+                    
+                    data.oled_modes.forEach(m => {
+                        const btn = document.createElement('button');
+                        btn.className = 'mode-btn';
+                        btn.innerText = m.name;
+                        btn.dataset.mode = m.id;
+                        btn.onclick = () => sendCommand(String(m.id));
+                        modeGrid.appendChild(btn);
+                    });
+                }
+
+                // Réception des couleurs OLED
+                if (data.oled_colors) {
+                    const colorDiv = document.getElementById('oledColorsContainer');
+                    const colorGrid = document.getElementById('colorGrid');
+                    colorDiv.style.display = 'block';
+                    colorGrid.innerHTML = "";
+                    data.oled_colors.forEach(c => {
+                        const dot = document.createElement('div');
+                        dot.className = 'color-dot';
+                        dot.style.backgroundColor = c.hex;
+                        dot.onclick = () => sendCommand(String(c.id));
+                        colorGrid.appendChild(dot);
+                    });
+                }
+
                 // Réception de la liste des animations OLED
                 if (data.oled_anims) {
                     const oledDiv = document.getElementById('oledControls');
@@ -254,6 +332,24 @@
                         if (el.dataset.face == data.face) el.classList.add('active');
                         else el.classList.remove('active');
                     });
+                }
+
+                // Mise à jour de l'état du mode OLED
+                if (data.oled_mode !== undefined) {
+                    document.querySelectorAll('.mode-btn').forEach(el => {
+                        if (el.dataset.mode == data.oled_mode) el.classList.add('active');
+                        else el.classList.remove('active');
+                    });
+                    
+                    // On n'affiche ou ne grise la grille d'animations que si on est en mode "Yeux" (ID 80)
+                    const animsSection = document.getElementById('oledControls');
+                    if (data.oled_mode == 80) {
+                        animsSection.style.opacity = "1";
+                        animsSection.style.pointerEvents = "auto";
+                    } else {
+                        animsSection.style.opacity = "0.4";
+                        animsSection.style.pointerEvents = "none";
+                    }
                 }
 
                 // Met à jour chaque indicateur basé sur les clés JSON (oled, lcd_l, etc.)
@@ -301,6 +397,7 @@
             document.getElementById('statusText').innerText = "Déconnecté.";
             document.getElementById('btConnect').disabled = false;
             btCharacteristic = null;
+            document.getElementById('mainUI').style.display = 'none';
             document.querySelectorAll('.indicator').forEach(el => el.className = 'indicator');
         }
 
