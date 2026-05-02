@@ -5,194 +5,441 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intellar Monitor</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #1a1a1a; color: #fff; margin: 0; padding: 20px; }
-        h1 { margin-bottom: 30px; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 800px; margin: 0 auto; }
-        .card { background: #2d2d2d; padding: 20px; border-radius: 12px; width: 140px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .indicator { width: 24px; height: 24px; border-radius: 50%; margin-bottom: 10px; transition: all 0.3s; background: #444; border: 2px solid #555; }
-        .indicator.on { background: #00e676; box-shadow: 0 0 15px #00e676; border-color: #00e676; }
-        .indicator.off { background: #ff1744; box-shadow: 0 0 5px #ff1744; border-color: #ff1744; }
-        button { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #2979ff; color: white; border: none; border-radius: 8px; margin-bottom: 20px; transition: background 0.2s; }
-        button:hover { background: #2962ff; }
-        button:disabled { background: #555; cursor: not-allowed; }
-        #statusText { margin-bottom: 20px; color: #aaa; font-style: italic; }
-        .fps { font-size: 12px; color: #888; margin-top: 5px; }
-        .controls { margin-top: 30px; border-top: 1px solid #444; padding-top: 20px; width: 100%; max-width: 800px; }
-        .char-grid { display: flex; gap: 20px; justify-content: center; margin-top: 20px; }
-        .char-card {
-            width: 120px; height: 140px;
-            background: #2d2d2d; border: 2px solid #555; border-radius: 12px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.2s;
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            text-align: center;
+            background: #121212;
+            color: #eee;
+            margin: 0;
+            padding: 24px 16px 48px;
+            line-height: 1.45;
         }
-        .char-card:hover { background: #3d3d3d; border-color: #2979ff; transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-        .char-card.active {
-            border-color: #00e676;
-            background: #2a3b2a;
-            box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
+        .app-shell {
+            max-width: 920px;
+            margin: 0 auto;
         }
-        .char-card canvas { width: 100px; height: 100px; border-radius: 8px; margin-bottom: 5px; display: none; }
-        .char-card .placeholder { width: 100px; height: 100px; background: #222; border: 1px solid #444; border-radius: 8px; margin-bottom: 5px; }
-        .char-card span { font-size: 16px; font-weight: bold; }
-        
-        .oled-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; }
-        .oled-btn {
-            padding: 10px 20px; background: #444; border: 1px solid #666; color: #fff;
-            border-radius: 6px; cursor: pointer; transition: all 0.2s;
-        }
-        .oled-btn:hover { background: #2979ff; border-color: #2979ff; }
+        h1 { margin: 0 0 8px; font-weight: 600; font-size: 1.5rem; }
+        .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 24px; }
 
-        .color-grid { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
-        .color-dot {
-            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
-            border: 2px solid #555; transition: transform 0.2s;
+        button#btConnect {
+            padding: 14px 28px;
+            font-size: 1rem;
+            cursor: pointer;
+            background: #2979ff;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            transition: background 0.2s;
         }
-        .color-dot:hover { transform: scale(1.2); border-color: #fff; }
-        
+        button#btConnect:hover { background: #1565c0; }
+        button#btConnect:disabled { background: #444; cursor: not-allowed; }
+
+        #statusText { margin-bottom: 20px; color: #aaa; font-size: 0.95rem; }
+
+        .indicators-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 14px;
+            justify-items: center;
+            margin: 0 auto 8px;
+        }
+        .card {
+            background: #1e1e1e;
+            padding: 16px 12px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 160px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #333;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+        }
+        .indicator {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            margin-bottom: 8px;
+            transition: all 0.25s;
+            background: #444;
+            border: 2px solid #555;
+        }
+        .indicator.on {
+            background: #00e676;
+            box-shadow: 0 0 12px rgba(0,230,118,0.55);
+            border-color: #00e676;
+        }
+        .indicator.off {
+            background: #ff1744;
+            box-shadow: 0 0 6px rgba(255,23,68,0.35);
+            border-color: #ff5252;
+        }
+        .card span { font-size: 0.82rem; color: #ccc; font-weight: 500; }
+
+        .fps { font-size: 11px; color: #888; margin-top: 6px; }
+
+        section.controls {
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid #2a2a2a;
+            text-align: center;
+        }
+        section.controls h2 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin: 0 0 6px;
+            color: #fff;
+        }
+        .hint {
+            font-size: 0.82rem;
+            color: #888;
+            margin: 0 auto 14px;
+            max-width: 640px;
+        }
+
         .target-selector {
-            display: flex; justify-content: center; gap: 15px; margin-bottom: 20px;
-            background: #222; padding: 10px; border-radius: 8px; border: 1px solid #444;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 12px 20px;
+            background: #1a1a1a;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            margin-bottom: 16px;
         }
-        .target-selector label { cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .target-selector label {
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.92rem;
+        }
         .target-selector input { cursor: pointer; accent-color: #2979ff; }
 
-        .mode-grid { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+        .subsection-title {
+            text-align: left;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #666;
+            margin: 18px auto 10px;
+            max-width: 100%;
+            padding-left: 4px;
+        }
+
+        .char-grid-scroll {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            padding: 10px 4px 16px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-color: #444 #1a1a1a;
+        }
+        .char-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            justify-content: center;
+            align-items: stretch;
+            min-height: min-content;
+            padding: 4px;
+        }
+
+        .char-card {
+            flex: 0 0 auto;
+            width: 112px;
+            min-height: 138px;
+            background: #1e1e1e;
+            border: 2px solid #333;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.15s;
+            padding: 8px;
+        }
+        .char-card:hover {
+            border-color: #2979ff;
+            transform: translateY(-2px);
+        }
+        .char-card.active {
+            border-color: #00e676;
+            box-shadow: 0 0 14px rgba(0,230,118,0.25);
+            background: #152018;
+        }
+        .char-card canvas {
+            width: 96px; height: 96px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            display: none;
+            object-fit: cover;
+            background: #000;
+        }
+        .char-card .placeholder {
+            width: 96px; height: 96px;
+            background: #252525;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+        .char-card span {
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.25;
+            color: #ddd;
+            text-align: center;
+            word-break: break-word;
+        }
+
+        .mode-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 12px;
+        }
         .mode-btn {
-            padding: 12px 24px; background: #333; border: 2px solid #555; color: #fff;
-            border-radius: 8px; cursor: pointer; transition: all 0.2s; font-weight: bold;
+            padding: 12px 20px;
+            background: #2a2a2a;
+            border: 2px solid #444;
+            color: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.92rem;
+            transition: border-color 0.2s, background 0.2s;
         }
         .mode-btn:hover { border-color: #2979ff; }
-        .mode-btn.active { background: #2979ff; border-color: #fff; box-shadow: 0 0 10px rgba(41, 121, 255, 0.5); }
+        .mode-btn.active {
+            background: #2979ff;
+            border-color: #64b5f6;
+            box-shadow: 0 0 12px rgba(41,121,255,0.35);
+        }
 
-        /* Masquage de l'interface hors connexion */
-        #mainUI { display: none; margin-top: 20px; }
+        .oled-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 12px;
+            max-width: 720px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .oled-btn {
+            padding: 9px 14px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #eee;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .oled-btn:hover:not(:disabled) {
+            background: #2979ff;
+            border-color: #2979ff;
+        }
+        .oled-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .color-grid { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+        .color-dot {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #555;
+            transition: transform 0.2s;
+        }
+        .color-dot:hover { transform: scale(1.12); border-color: #fff; }
+
+        #mainUI { display: none; margin-top: 8px; }
     </style>
 </head>
 <body>
-    <h1>Intellar Engine Monitor</h1>
-    
-    <button id="btConnect">Connexion Bluetooth</button>
-    <div id="statusText">En attente de connexion...</div>
+    <div class="app-shell">
+        <h1>Intellar Engine Monitor</h1>
+        <p class="subtitle">Contrôle TFT / OLED et suivi des capteurs (BLE)</p>
 
-    <!-- Interface principale cachée au départ -->
-    <div id="mainUI">
-        <div class="container" id="indicatorsContainer"></div>
+        <button type="button" id="btConnect">Connexion Bluetooth</button>
+        <div id="statusText">En attente de connexion…</div>
 
-        <div class="controls">
-            <h2>Changer de Personnage</h2>
-            <div class="target-selector">
-                <span>Cible :</span>
-                <label><input type="radio" name="targetDisplay" value="0" checked> Écran Gauche</label>
-                <label><input type="radio" name="targetDisplay" value="20"> Écran Droit</label>
-            </div>
-            <div class="char-grid" id="charGrid">
-                <!-- Généré dynamiquement depuis 'faces' et 'files' -->
-            </div>
-        </div>
+        <div id="mainUI">
+            <div class="indicators-grid" id="indicatorsContainer"></div>
 
-        <div class="controls" id="oledModeContainer" style="display:none;">
-            <h2>Mode Écran OLED</h2>
-            <div class="mode-grid" id="oledModeGrid"></div>
-        </div>
+            <section class="controls">
+                <h2>Personnages TFT</h2>
+                <p class="hint">Visages intégrés (strip 5 poses). Les cartes <strong>Fichiers</strong> envoient un <code>.bin</code> sur l’écran choisi (1<sup>re</sup> colonne du strip) — le touchpad physique change la pose si le fichier contient plusieurs visages.</p>
+                <div class="target-selector">
+                    <span style="font-weight:600;color:#aaa">Cible fichier :</span>
+                    <label><input type="radio" name="targetDisplay" value="0"> Écran gauche</label>
+                    <label><input type="radio" name="targetDisplay" value="20" checked> Écran droit</label>
+                </div>
+                <div class="subsection-title">Visages intégrés</div>
+                <div class="char-grid-scroll">
+                    <div class="char-grid" id="charGridBuiltin"></div>
+                </div>
+                <div id="filesSectionWrap">
+                    <div class="subsection-title">Fichiers LittleFS</div>
+                    <div class="char-grid-scroll">
+                        <div class="char-grid" id="charGridFiles"></div>
+                    </div>
+                </div>
+            </section>
 
-        <div class="controls" id="oledColorsContainer" style="display:none;">
-            <h2>Couleur des Yeux</h2>
-            <div class="color-grid" id="colorGrid"></div>
-        </div>
+            <section class="controls" id="oledModeContainer" style="display:none;">
+                <h2>Mode OLED</h2>
+                <p class="hint" id="oledModeHint">Yeux : animations procédurales. Touchpad : barres de debug des zones tactiles.</p>
+                <div class="mode-grid" id="oledModeGrid"></div>
+            </section>
 
-        <div class="controls" id="oledControls" style="display:none;">
-            <h2>Animations Yeux (OLED)</h2>
-            <div class="oled-grid" id="oledGrid"></div>
+            <section class="controls" id="oledColorsContainer" style="display:none;">
+                <h2>Couleur des yeux</h2>
+                <div class="color-grid" id="colorGrid"></div>
+            </section>
+
+            <section class="controls" id="oledControls" style="display:none;">
+                <h2>Animations OLED</h2>
+                <p class="hint" id="oledAnimHint">Disponible uniquement en mode <strong>Yeux (Anim)</strong>.</p>
+                <div class="oled-grid" id="oledGrid"></div>
+            </section>
         </div>
     </div>
 
     <script>
-        // UUIDs doivent correspondre EXACTEMENT à ceux définis dans Bluetooth.cpp
         const SERVICE_UUID = "590d65c7-3a0a-4023-a05a-6aaf2f22441c";
         const CHAR_UUID    = "0f0394c8-3162-42da-a0f5-5b0907106037";
-        
+
         let bluetoothDevice;
-        let btCharacteristic; // Variable pour stocker la connexion d'écriture
-        
-        // Variables pour la réception d'image
+        let btCharacteristic;
+        /** Dernier mode OLED (80 Yeux, 81 Touchpad, 82 Performance). */
+        let lastOledMode = 80;
         let imgBuffer = null;
         let imgBufferIdx = 0;
         let currentPreviewId = -1;
-        
-        // Définition des composants possibles pour la génération dynamique
+
         const COMPONENTS_DEF = {
             oled: { label: "OLED", fpsId: "fps_oled" },
-            lcd_l: { label: "LCD Gauche", fpsId: "fps_lcd_l" },
-            lcd_r: { label: "LCD Droit", fpsId: "fps_lcd_r" },
-            touch: { label: "Tactile" },
-            imu: { label: "IMU (Gyro)" },
-            tof: { label: "ToF (Distance)" },
-            touchpad: { label: "Touchpad" }
+            lcd_l: { label: "LCD gauche", fpsId: "fps_lcd_l" },
+            lcd_r: { label: "LCD droit", fpsId: "fps_lcd_r" },
+            touch: { label: "Tactile", fpsId: null },
+            imu: { label: "IMU", fpsId: null },
+            tof: { label: "ToF", fpsId: null },
+            touchpad: { label: "Touchpad", fpsId: null }
         };
+
+        function resetDashboardUI() {
+            document.getElementById('indicatorsContainer').innerHTML = '';
+            document.getElementById('charGridBuiltin').innerHTML = '';
+            document.getElementById('charGridFiles').innerHTML = '';
+            const fsw = document.getElementById('filesSectionWrap');
+            if (fsw) fsw.style.display = 'block';
+            document.getElementById('oledModeGrid').innerHTML = '';
+            document.getElementById('oledGrid').innerHTML = '';
+            document.getElementById('colorGrid').innerHTML = '';
+            document.getElementById('oledModeContainer').style.display = 'none';
+            document.getElementById('oledColorsContainer').style.display = 'none';
+            document.getElementById('oledControls').style.display = 'none';
+            setOledAnimInteractive(true);
+            imgBuffer = null;
+            imgBufferIdx = 0;
+            currentPreviewId = -1;
+        }
+
+        function setOledAnimInteractive(enabled) {
+            const animsSection = document.getElementById('oledControls');
+            const hint = document.getElementById('oledAnimHint');
+            animsSection.style.opacity = enabled ? '1' : '0.45';
+            document.querySelectorAll('#oledGrid .oled-btn').forEach(btn => {
+                btn.disabled = !enabled;
+            });
+            if (hint) {
+                hint.textContent = enabled
+                    ? 'Cliquez pour lancer une animation sur l’OLED.'
+                    : 'Passez en mode « Yeux (Anim) » pour utiliser ces boutons.';
+            }
+        }
+
+        function applyOledModeUI(mode) {
+            const m = String(mode);
+            document.querySelectorAll('.mode-btn').forEach(el => {
+                el.classList.toggle('active', el.dataset.mode === m);
+            });
+            const isAnim = (m === '80');
+            setOledAnimInteractive(isAnim);
+            const mh = document.getElementById('oledModeHint');
+            if (mh) {
+                if (m === '80') {
+                    mh.textContent = 'Mode Yeux : les boutons ci‑dessous déclenchent les animations OLED.';
+                } else if (m === '81') {
+                    mh.textContent = 'Mode Touchpad : l’OLED affiche les barres de force des quatre zones tactiles.';
+                } else if (m === '82') {
+                    mh.textContent = 'Mode Performance : sur l’OLED — FPS boucle TFT, SRAM / PSRAM, BLE, visage TFT, atlas / RobotEye.';
+                } else {
+                    mh.textContent = 'Mode OLED.';
+                }
+            }
+        }
 
         document.getElementById('btConnect').addEventListener('click', async () => {
             try {
-                document.getElementById('statusText').innerText = "Recherche du périphérique...";
-                
-                // 1. Demander à l'utilisateur de choisir le périphérique
+                document.getElementById('statusText').innerText = "Recherche du périphérique…";
                 const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ services: [SERVICE_UUID] }] // Filtre par notre Service UUID
+                    filters: [{ services: [SERVICE_UUID] }]
                 });
-
                 bluetoothDevice = device;
                 bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
-                // 2. Se connecter au serveur GATT
-                document.getElementById('statusText').innerText = "Connexion en cours...";
+                document.getElementById('statusText').innerText = "Connexion…";
                 const server = await device.gatt.connect();
-
-                // 3. Récupérer le service et la caractéristique
                 const service = await server.getPrimaryService(SERVICE_UUID);
                 const characteristic = await service.getCharacteristic(CHAR_UUID);
-                btCharacteristic = characteristic; // Sauvegarde pour utilisation ultérieure
+                btCharacteristic = characteristic;
 
-                // 4. Activer les notifications
                 await characteristic.startNotifications();
                 characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
 
                 document.getElementById('statusText').innerText = "Connecté à " + device.name;
                 document.getElementById('btConnect').disabled = true;
+                resetDashboardUI();
                 document.getElementById('mainUI').style.display = 'block';
-
-                // 5. Demander la liste des fichiers disponibles
-                setTimeout(() => sendCommand('99'), 500); 
-
+                setTimeout(() => sendCommand('99'), 300);
             } catch (error) {
                 console.error(error);
-                document.getElementById('statusText').innerText = "Erreur: " + error;
+                document.getElementById('statusText').innerText = "Erreur : " + error;
             }
         });
 
         function handleNotifications(event) {
             const value = event.target.value;
             const decoder = new TextDecoder('utf-8');
-            
-            // DÉTECTION IMAGE BINAIRE (Header: I M G 0 120 120)
+
             if (value.byteLength > 3 && value.getUint8(0) === 73 && value.getUint8(1) === 77 && value.getUint8(2) === 71) {
-                const id = value.getUint8(3); // Lecture de l'ID
+                const id = value.getUint8(3);
                 const w = value.getUint8(4);
                 const h = value.getUint8(5);
-                console.log(`Reception image ID:${id} ${w}x${h}`);
-                // Préparation du buffer (RGB565 = 2 bytes per pixel)
                 imgBuffer = new Uint8Array(w * h * 2);
                 imgBufferIdx = 0;
-                currentPreviewId = id; // On mémorise l'ID pour ce transfert
+                currentPreviewId = id;
                 return;
             }
 
-            // ACCUMULATION DONNÉES IMAGE
             if (imgBuffer !== null) {
-                const chunk = new Uint8Array(value.buffer);
+                const chunk = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
                 if (imgBufferIdx + chunk.length <= imgBuffer.length) {
                     imgBuffer.set(chunk, imgBufferIdx);
                     imgBufferIdx += chunk.length;
-                    
-                    // Image complète reçue
                     if (imgBufferIdx >= imgBuffer.length) {
                         renderPreview(imgBuffer, 120, 120, currentPreviewId);
                         imgBuffer = null;
@@ -201,101 +448,88 @@
                 }
             }
 
-            // DÉTECTION JSON
-            const jsonString = decoder.decode(value);
-            
+            const jsonString = decoder.decode(value).trim();
             try {
-                // Si ça ne ressemble pas à du JSON, on ignore (paquet binaire perdu ?)
                 if (!jsonString.startsWith('{')) return;
-
                 const data = JSON.parse(jsonString);
-                
-                // RECEPTION CONFIGURATION INITIALE
+
                 if (data.config) {
                     const container = document.getElementById('indicatorsContainer');
-                    container.innerHTML = ""; // Reset
-                    
-                    for (const [key, enabled] of Object.entries(data.config)) {
-                        if (enabled && COMPONENTS_DEF[key]) {
-                            const def = COMPONENTS_DEF[key];
-                            const fpsHtml = def.fpsId ? `<div id="${def.fpsId}" class="fps">-- FPS</div>` : '';
-                            
-                            const card = document.createElement('div');
-                            card.className = 'card';
-                            card.innerHTML = `<div id="${key}" class="indicator"></div><span>${def.label}</span>${fpsHtml}`;
-                            container.appendChild(card);
-                        }
-                    }
-                }
-
-                // Réception des Personnages (Faces systèmes et Files SD)
-                if (data.faces || data.files) {
-                    const grid = document.getElementById('charGrid');
-                    
-                    // On ne vide la grille que si on reçoit les faces (le premier paquet de synchro)
-                    if (data.faces) grid.innerHTML = "";
-
-                    // 1. Ajouter les Faces systèmes (Chat, ToF, etc.)
-                    if (data.faces) {
-                        data.faces.forEach(f => {
-                            const div = document.createElement('div');
-                            div.className = 'char-card';
-                            div.dataset.face = f.id;
-                            div.onclick = () => sendCommand(String(f.id));
-                            div.innerHTML = `
-                                <div class="placeholder" style="display:flex;align-items:center;justify-content:center;font-size:30px;">🤖</div>
-                                <span>${f.name}</span>
-                            `;
-                            grid.appendChild(div);
-                        });
-                    }
-
-                    // 2. Ajouter les Fichiers d'expressions (SD Card)
-                    if (data.files) {
-                        data.files.forEach(f => {
-                            let cleanName = f.name.replace(/^\//, '').replace(/^expression-/, '').split('-')[0];
-                            cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-                            
-                            const div = document.createElement('div');
-                            div.className = 'char-card';
-                            div.dataset.face = f.id;
-                            div.onclick = () => {
-                                const offset = parseInt(document.querySelector('input[name="targetDisplay"]:checked').value);
-                                sendCommand(String(f.id + offset));
-                            };
-                            div.innerHTML = `
-                                <div class="placeholder" id="icon-${f.id}"></div>
-                                <canvas id="cvs-${f.id}" width="120" height="120"></canvas>
-                                <span>${cleanName}</span>
-                            `;
-                            grid.appendChild(div);
-
-                        // Demander la miniature après un court délai échelonné
-                        setTimeout(() => {
-                            sendCommand(String(200 + (f.id - 10))); // 200 + index
-                        }, 500 + (f.id - 10) * 2000);
+                    container.innerHTML = "";
+                    const order = ['oled','lcd_l','lcd_r','touch','imu','tof','touchpad'];
+                    order.forEach(key => {
+                        const enabled = data.config[key];
+                        if (!enabled || !COMPONENTS_DEF[key]) return;
+                        const def = COMPONENTS_DEF[key];
+                        const fpsHtml = def.fpsId ? `<div id="${def.fpsId}" class="fps">—</div>` : '';
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.innerHTML = `<div id="${key}" class="indicator"></div><span>${def.label}</span>${fpsHtml}`;
+                        container.appendChild(card);
                     });
                 }
+
+                if (data.faces) {
+                    document.getElementById('charGridBuiltin').innerHTML = "";
+                    data.faces.forEach(f => {
+                        const grid = document.getElementById('charGridBuiltin');
+                        const div = document.createElement('div');
+                        div.className = 'char-card';
+                        div.dataset.face = String(f.id);
+                        div.dataset.kind = 'builtin';
+                        div.onclick = () => sendCommand(String(f.id));
+                        div.innerHTML = `
+                            <div class="placeholder">🤖</div>
+                            <span>${f.name}</span>`;
+                        grid.appendChild(div);
+                    });
                 }
-                
-                // Réception des modes OLED (Yeux vs Touchpad)
+
+                if (data.files) {
+                    const wrap = document.getElementById('filesSectionWrap');
+                    if (wrap) wrap.style.display = data.files.length ? 'block' : 'none';
+                    const grid = document.getElementById('charGridFiles');
+                    grid.innerHTML = "";
+                    data.files.forEach((f, i) => {
+                        let cleanName = f.name.replace(/^\//, '').replace(/^expression-/, '').split('-')[0];
+                        cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+
+                        const div = document.createElement('div');
+                        div.className = 'char-card';
+                        div.dataset.face = String(f.id);
+                        div.dataset.kind = 'file';
+                        div.onclick = () => {
+                            const offset = parseInt(document.querySelector('input[name="targetDisplay"]:checked').value, 10);
+                            sendCommand(String(Number(f.id) + offset));
+                        };
+                        div.innerHTML = `
+                            <div class="placeholder" id="icon-${f.id}"></div>
+                            <canvas id="cvs-${f.id}" width="120" height="120"></canvas>
+                            <span>${cleanName}</span>`;
+                        grid.appendChild(div);
+                        const delayBase = 400;
+                        const stagger = 350;
+                        setTimeout(() => {
+                            sendCommand(String(200 + (Number(f.id) - 10)));
+                        }, delayBase + i * stagger);
+                    });
+                }
+
                 if (data.oled_modes) {
-                    const modeDiv = document.getElementById('oledModeContainer');
+                    document.getElementById('oledModeContainer').style.display = 'block';
                     const modeGrid = document.getElementById('oledModeGrid');
-                    modeDiv.style.display = 'block';
                     modeGrid.innerHTML = "";
-                    
                     data.oled_modes.forEach(m => {
                         const btn = document.createElement('button');
+                        btn.type = 'button';
                         btn.className = 'mode-btn';
-                        btn.innerText = m.name;
-                        btn.dataset.mode = m.id;
+                        btn.textContent = m.name;
+                        btn.dataset.mode = String(m.id);
                         btn.onclick = () => sendCommand(String(m.id));
                         modeGrid.appendChild(btn);
                     });
                 }
 
-                // Réception des couleurs OLED
                 if (data.oled_colors) {
                     const colorDiv = document.getElementById('oledColorsContainer');
                     const colorGrid = document.getElementById('colorGrid');
@@ -310,60 +544,46 @@
                     });
                 }
 
-                // Réception de la liste des animations OLED
                 if (data.oled_anims) {
-                    const oledDiv = document.getElementById('oledControls');
+                    document.getElementById('oledControls').style.display = 'block';
                     const oledGrid = document.getElementById('oledGrid');
-                    oledDiv.style.display = 'block';
                     oledGrid.innerHTML = "";
-                    
                     data.oled_anims.forEach(anim => {
                         const btn = document.createElement('button');
+                        btn.type = 'button';
                         btn.className = 'oled-btn';
-                        btn.innerText = anim.name;
+                        btn.textContent = anim.name;
                         btn.onclick = () => sendCommand(String(anim.id));
                         oledGrid.appendChild(btn);
                     });
+                    applyOledModeUI(lastOledMode);
                 }
 
-                // Mise à jour de la sélection de personnage
-                if (data.face !== undefined) {
-                    document.querySelectorAll('.char-card').forEach(el => {
-                        if (el.dataset.face == data.face) el.classList.add('active');
-                        else el.classList.remove('active');
+                if (data.face !== undefined && data.face !== null) {
+                    const active = String(data.face);
+                    document.querySelectorAll('.char-card[data-kind="builtin"]').forEach(el => {
+                        el.classList.toggle('active', el.dataset.face === active);
                     });
                 }
 
-                // Mise à jour de l'état du mode OLED
-                if (data.oled_mode !== undefined) {
-                    document.querySelectorAll('.mode-btn').forEach(el => {
-                        if (el.dataset.mode == data.oled_mode) el.classList.add('active');
-                        else el.classList.remove('active');
-                    });
-                    
-                    // On n'affiche ou ne grise la grille d'animations que si on est en mode "Yeux" (ID 80)
-                    const animsSection = document.getElementById('oledControls');
-                    if (data.oled_mode == 80) {
-                        animsSection.style.opacity = "1";
-                        animsSection.style.pointerEvents = "auto";
-                    } else {
-                        animsSection.style.opacity = "0.4";
-                        animsSection.style.pointerEvents = "none";
-                    }
+                if (data.oled_mode !== undefined && data.oled_mode !== null) {
+                    lastOledMode = Number(data.oled_mode);
+                    applyOledModeUI(lastOledMode);
                 }
 
-                // Met à jour chaque indicateur basé sur les clés JSON (oled, lcd_l, etc.)
                 for (const [key, val] of Object.entries(data)) {
                     const el = document.getElementById(key);
-                    if (el) {
-                        if (key.startsWith('fps_')) {
-                            el.innerText = val + ' FPS';
-                        } else {
-                            el.className = 'indicator ' + (val ? 'on' : 'off');
-                        }
+                    if (!el) continue;
+                    if (key.startsWith('fps_')) {
+                        const n = typeof val === 'number' ? val : parseInt(val, 10);
+                        el.textContent = (Number.isFinite(n) ? n : 0) + ' FPS';
+                    } else if (typeof val === 'boolean') {
+                        el.className = 'indicator ' + (val ? 'on' : 'off');
                     }
                 }
-            } catch (e) { console.error("JSON invalide", e); }
+            } catch (e) {
+                console.error("JSON invalide", e, jsonString.slice(0, 240));
+            }
         }
 
         function renderPreview(buffer, width, height, id) {
@@ -374,40 +594,38 @@
             const ctx = cvs.getContext('2d');
             const imgData = ctx.createImageData(width, height);
             const data = imgData.data;
-            const u16 = new Uint16Array(buffer.buffer);
+            const u16 = new Uint16Array(buffer.buffer, buffer.byteOffset, buffer.byteLength / 2);
 
-            for (let i = 0; i < u16.length; i++) {
-                let pixel = u16[i];
-                // RGB565 conversion
-                // (Attention au boutisme, ici on suppose que c'est reçu tel quel)
-                let r = (pixel >> 11) & 0x1F;
-                let g = (pixel >> 5) & 0x3F;
-                let b = pixel & 0x1F;
-                data[i*4] = (r * 255 / 31);
-                data[i*4+1] = (g * 255 / 63);
-                data[i*4+2] = (b * 255 / 31);
-                data[i*4+3] = 255;
+            for (let i = 0; i < u16.length && i < width * height; i++) {
+                const pixel = u16[i];
+                const r = (pixel >> 11) & 0x1F;
+                const g = (pixel >> 5) & 0x3F;
+                const b = pixel & 0x1F;
+                data[i * 4] = (r * 255 / 31);
+                data[i * 4 + 1] = (g * 255 / 63);
+                data[i * 4 + 2] = (b * 255 / 31);
+                data[i * 4 + 3] = 255;
             }
             ctx.putImageData(imgData, 0, 0);
             cvs.style.display = 'block';
-            if(icon) icon.style.display = 'none';
+            if (icon) icon.style.display = 'none';
         }
 
-        function onDisconnected(event) {
+        function onDisconnected() {
             document.getElementById('statusText').innerText = "Déconnecté.";
             document.getElementById('btConnect').disabled = false;
             btCharacteristic = null;
             document.getElementById('mainUI').style.display = 'none';
-            document.querySelectorAll('.indicator').forEach(el => el.className = 'indicator');
+            resetDashboardUI();
         }
 
         async function sendCommand(cmd) {
             if (!btCharacteristic) {
-                alert("Non connecté !");
+                alert("Non connecté.");
                 return;
             }
             const encoder = new TextEncoder();
-            await btCharacteristic.writeValue(encoder.encode(cmd));
+            await btCharacteristic.writeValue(encoder.encode(String(cmd)));
         }
     </script>
 </body>
