@@ -254,6 +254,21 @@
             cursor: not-allowed;
         }
 
+        .video-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 12px 16px;
+            margin: 12px auto 14px;
+            max-width: 640px;
+        }
+        .video-toolbar .mode-btn.loop-on {
+            background: #1b3a2d;
+            border-color: #00e676;
+            color: #a5ffd4;
+        }
+
         .color-grid { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
         .color-dot {
             width: 32px; height: 32px;
@@ -294,6 +309,22 @@
                     <div class="subsection-title">Fichiers LittleFS</div>
                     <div class="char-grid-scroll">
                         <div class="char-grid" id="charGridFiles"></div>
+                    </div>
+                </div>
+                <div id="videoSectionWrap" style="display:none;">
+                    <div class="subsection-title">Vidéos MJPEG</div>
+                    <p class="hint">Flux JPEG concaténés sur la carte (LittleFS). Utilise le même <strong>Cible fichier</strong> que les strips (gauche / droit).</p>
+                    <div class="video-toolbar">
+                        <button type="button" class="mode-btn" id="btnVideoStop">Stop</button>
+                        <button type="button" class="mode-btn" id="btnVideoLoop" title="Lecture en boucle">Boucle</button>
+                        <label style="display:inline-flex;align-items:center;gap:10px;color:#bbb;font-size:0.88rem;">
+                            Vitesse
+                            <input type="range" id="videoSpeedSlider" min="0" max="2" step="1" value="1" aria-label="Vitesse de lecture">
+                            <span id="videoSpeedLabel" style="min-width:42px;font-weight:600;">1×</span>
+                        </label>
+                    </div>
+                    <div class="char-grid-scroll">
+                        <div class="char-grid" id="charGridVideos"></div>
                     </div>
                 </div>
             </section>
@@ -339,10 +370,19 @@
             touchpad: { label: "Touchpad", fpsId: null }
         };
 
+        const VIDEO_SPEED_LABELS = ['0.5×', '1×', '1.5×'];
+        const VIDEO_SPEED_CMD = [540, 541, 542];
+
         function resetDashboardUI() {
             document.getElementById('indicatorsContainer').innerHTML = '';
             document.getElementById('charGridBuiltin').innerHTML = '';
             document.getElementById('charGridFiles').innerHTML = '';
+            const vg = document.getElementById('charGridVideos');
+            if (vg) vg.innerHTML = '';
+            const vsw = document.getElementById('videoSectionWrap');
+            if (vsw) vsw.style.display = 'none';
+            const loopBtn = document.getElementById('btnVideoLoop');
+            if (loopBtn) loopBtn.classList.remove('loop-on');
             const fsw = document.getElementById('filesSectionWrap');
             if (fsw) fsw.style.display = 'block';
             document.getElementById('oledModeGrid').innerHTML = '';
@@ -515,6 +555,45 @@
                     });
                 }
 
+                if (data.videos) {
+                    const vwrap = document.getElementById('videoSectionWrap');
+                    const vgrid = document.getElementById('charGridVideos');
+                    if (vwrap && vgrid) {
+                        vwrap.style.display = data.videos.length ? 'block' : 'none';
+                        vgrid.innerHTML = '';
+                        data.videos.forEach((v) => {
+                            let cleanName = (v.name || '').replace(/^\//, '').replace(/\.(mjpeg|mjpg)$/i, '');
+                            cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+                            const div = document.createElement('div');
+                            div.className = 'char-card';
+                            div.dataset.vid = String(v.id);
+                            div.dataset.kind = 'video';
+                            div.onclick = () => {
+                                const offset = parseInt(document.querySelector('input[name="targetDisplay"]:checked').value, 10);
+                                sendCommand(String(Number(v.id) + offset));
+                            };
+                            div.innerHTML = `
+                                <div class="placeholder">▶</div>
+                                <span>${cleanName}</span>`;
+                            vgrid.appendChild(div);
+                        });
+                    }
+                }
+
+                if (data.video_loop !== undefined && data.video_loop !== null) {
+                    document.getElementById('btnVideoLoop')?.classList.toggle('loop-on', !!data.video_loop);
+                }
+                if (data.video_speed !== undefined && data.video_speed !== null) {
+                    const spd = Number(data.video_speed);
+                    let idx = 1;
+                    if (Math.abs(spd - 0.5) < 0.05) idx = 0;
+                    else if (Math.abs(spd - 1.5) < 0.05) idx = 2;
+                    const sl = document.getElementById('videoSpeedSlider');
+                    const lb = document.getElementById('videoSpeedLabel');
+                    if (sl) sl.value = String(idx);
+                    if (lb) lb.textContent = VIDEO_SPEED_LABELS[idx] || '1×';
+                }
+
                 if (data.oled_modes) {
                     document.getElementById('oledModeContainer').style.display = 'block';
                     const modeGrid = document.getElementById('oledModeGrid');
@@ -627,6 +706,18 @@
             const encoder = new TextEncoder();
             await btCharacteristic.writeValue(encoder.encode(String(cmd)));
         }
+
+        document.getElementById('btnVideoStop')?.addEventListener('click', () => sendCommand('598'));
+        document.getElementById('btnVideoLoop')?.addEventListener('click', () => sendCommand('599'));
+        document.getElementById('videoSpeedSlider')?.addEventListener('input', (e) => {
+            const i = parseInt(e.target.value, 10);
+            const lb = document.getElementById('videoSpeedLabel');
+            if (lb) lb.textContent = VIDEO_SPEED_LABELS[i] || '1×';
+        });
+        document.getElementById('videoSpeedSlider')?.addEventListener('change', (e) => {
+            const i = parseInt(e.target.value, 10);
+            sendCommand(String(VIDEO_SPEED_CMD[Math.max(0, Math.min(2, i))]));
+        });
     </script>
 </body>
 </html>
